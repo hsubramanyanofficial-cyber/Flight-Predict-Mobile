@@ -1,0 +1,6 @@
+{
+  "name": "FPPS — Flight Price Prediction System",
+  "description": "Cross-Platform Mobile Application for Flight Price Prediction, Search, Insights and Tracking in India (INR)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
