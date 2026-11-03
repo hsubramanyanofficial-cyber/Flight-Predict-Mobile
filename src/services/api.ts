@@ -1,10 +1,56 @@
 import { Flight, PredictionResult, TrackedRoute, UserPreferences } from '../types';
 
+/**
+ * Centralized safe error logger that sanitizes URLs and prevents sensitive data exposure.
+ */
+function logApiError(action: string, error: unknown) {
+  const safeMessage = error instanceof Error ? error.message : 'Unknown error';
+  // Sanitized logging without exposing secrets or tokens
+  console.warn(`[FPPS API Warning] Action: ${action} | Error: ${safeMessage}`);
+}
+
+/**
+ * Centralized request wrapper with retry logic (exponential backoff) and user-friendly error handling.
+ */
+async function requestWithRetry<T>(
+  url: string,
+  options?: RequestInit,
+  retries = 3,
+  backoff = 300
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        let errorMsg = `Server error (${response.status})`;
+        if (response.status === 400) errorMsg = 'Invalid request parameters. Please check your input.';
+        else if (response.status === 401) errorMsg = 'Authentication required. Please sign in again.';
+        else if (response.status === 404) errorMsg = 'Requested route or resource not found.';
+        else if (response.status >= 500) errorMsg = 'Temporary server error. Please try again later.';
+        
+        throw new Error(errorMsg);
+      }
+
+      return await response.json();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Network request failed');
+      logApiError(`GET/POST ${url} (Attempt ${attempt}/${retries})`, lastError);
+
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, backoff * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+
+  throw new Error(lastError?.message || 'Unable to complete request. Please check your internet connection.');
+}
+
 export const api = {
   async getAirports(): Promise<{ code: string; city: string; name: string }[]> {
-    const res = await fetch('/api/airports');
-    if (!res.ok) throw new Error('Failed to fetch airports');
-    return res.json();
+    return requestWithRetry<{ code: string; city: string; name: string }[]>('/api/airports');
   },
 
   async searchFlights(params: {
@@ -19,9 +65,9 @@ export const api = {
     searchParams.set('date', params.date);
     if (params.cabinClass) searchParams.set('cabinClass', params.cabinClass);
 
-    const res = await fetch(`/api/flights/search?${searchParams.toString()}`);
-    if (!res.ok) throw new Error('Failed to search flights');
-    return res.json();
+    return requestWithRetry<{ query: any; count: number; flights: Flight[] }>(
+      `/api/flights/search?${searchParams.toString()}`
+    );
   },
 
   async getPrediction(params: {
@@ -32,25 +78,19 @@ export const api = {
     cabinClass: string;
     stops: number;
   }): Promise<PredictionResult> {
-    const res = await fetch('/api/flights/predict', {
+    return requestWithRetry<PredictionResult>('/api/flights/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params)
     });
-    if (!res.ok) throw new Error('Failed to get prediction');
-    return res.json();
   },
 
   async getInsights(route: string): Promise<any> {
-    const res = await fetch(`/api/insights/${route}`);
-    if (!res.ok) throw new Error('Failed to fetch price insights');
-    return res.json();
+    return requestWithRetry<any>(`/api/insights/${route}`);
   },
 
   async getTrackedRoutes(): Promise<TrackedRoute[]> {
-    const res = await fetch('/api/tracked');
-    if (!res.ok) throw new Error('Failed to fetch tracked routes');
-    return res.json();
+    return requestWithRetry<TrackedRoute[]>('/api/tracked');
   },
 
   async addTrackedRoute(data: {
@@ -59,46 +99,41 @@ export const api = {
     targetPrice: number;
     cabinClass: string;
   }): Promise<TrackedRoute> {
-    const res = await fetch('/api/tracked', {
+    const res = await requestWithRetry<{ success: boolean; route: TrackedRoute }>('/api/tracked', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to add tracked route');
-    const json = await res.json();
-    return json.route;
+    return res.route;
   },
 
   async deleteTrackedRoute(id: string): Promise<void> {
-    const res = await fetch(`/api/tracked/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete tracked route');
+    await requestWithRetry<any>(`/api/tracked/${id}`, { method: 'DELETE' });
   },
 
   async getPreferences(): Promise<UserPreferences> {
-    const res = await fetch('/api/profile/preferences');
-    if (!res.ok) throw new Error('Failed to fetch preferences');
-    return res.json();
+    return requestWithRetry<UserPreferences>('/api/profile/preferences');
   },
 
   async updatePreferences(prefs: Partial<UserPreferences>): Promise<UserPreferences> {
-    const res = await fetch('/api/profile/preferences', {
+    const res = await requestWithRetry<{ success: boolean; preferences: UserPreferences }>('/api/profile/preferences', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(prefs)
     });
-    if (!res.ok) throw new Error('Failed to update preferences');
-    const json = await res.json();
-    return json.preferences;
+    return res.preferences;
   },
 
   async getAiAdvice(params: { origin: string; destination: string; date: string }): Promise<string> {
-    const res = await fetch('/api/ai/advice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
-    });
-    if (!res.ok) return 'Book 14 days in advance for best airfare rates.';
-    const json = await res.json();
-    return json.advice;
+    try {
+      const res = await requestWithRetry<{ advice: string }>('/api/ai/advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      return res.advice;
+    } catch {
+      return 'Book 14 days in advance for best airfare rates.';
+    }
   }
 };

@@ -6,6 +6,7 @@ import { SearchScreen } from './components/SearchScreen';
 import { InsightsScreen } from './components/InsightsScreen';
 import { TrackedScreen } from './components/TrackedScreen';
 import { ProfileScreen } from './components/ProfileScreen';
+import { AiHubScreen } from './components/AiHubScreen';
 import { PredictionModal } from './components/PredictionModal';
 import { CapacitorModal } from './components/CapacitorModal';
 import { Flight, SearchQuery } from './types';
@@ -64,6 +65,8 @@ export default function App() {
         {currentTab === 'insights' && <InsightsScreen />}
 
         {currentTab === 'tracked' && <TrackedScreen />}
+
+        {currentTab === 'ai' && <AiHubScreen />}
 
         {currentTab === 'profile' && (
           <ProfileScreen onOpenCapacitorGuide={() => setShowCapacitorModal(true)} />

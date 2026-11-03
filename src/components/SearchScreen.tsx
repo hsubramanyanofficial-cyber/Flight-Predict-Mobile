@@ -20,14 +20,16 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ initialQuery, onOpen
   const [sortBy, setSortBy] = useState<'price' | 'duration' | 'prediction'>('price');
   const [maxStops, setMaxStops] = useState<number>(2);
   const [trackedSuccess, setTrackedSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchFlights = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.searchFlights({ origin, destination, date, cabinClass });
       setFlights(data.flights);
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to load flight results. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -126,6 +128,13 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ initialQuery, onOpen
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center space-x-2 animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>Route {origin} → {destination} successfully added to tracked alerts!</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-xl text-xs flex items-center space-x-2 animate-fadeIn">
+          <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 

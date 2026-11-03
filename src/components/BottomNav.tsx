@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, TrendingUp, Bell, User } from 'lucide-react';
+import { Home, Search, TrendingUp, Bell, User, Sparkles } from 'lucide-react';
 
 interface BottomNavProps {
   currentTab: string;
@@ -12,6 +12,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
     { id: 'search', label: 'Search', icon: Search },
     { id: 'insights', label: 'Insights', icon: TrendingUp },
     { id: 'tracked', label: 'Tracked', icon: Bell },
+    { id: 'ai', label: 'AI Hub', icon: Sparkles },
     { id: 'profile', label: 'Profile', icon: User },
   ];
 

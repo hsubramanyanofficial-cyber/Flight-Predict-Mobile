@@ -339,7 +339,7 @@ app.post('/api/ai/advice', async (req, res) => {
 
   try {
     const response = await aiClient.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: `Provide expert concise airfare booking advice for a flight from ${origin} to ${destination} on ${date}. Give actionable tips on best days to fly, optimal lead time, and price expectations in INR. Keep it under 4 sentences.`
     });
     res.json({ advice: response.text });
